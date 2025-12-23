@@ -17,17 +17,16 @@ fun MainMenu(
     startGame: () -> Unit,
     navigateToCredits: () -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxSize()){
-        Column(
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Button(onClick = startGame, modifier = Modifier.padding(8.dp)) {
-                Text(text = "Start Game")
-            }
-            Button(onClick = navigateToCredits, modifier = Modifier.padding(8.dp)) {
-                Text(text = "Credits")
-            }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Button(onClick = startGame, modifier = Modifier.padding(8.dp)) {
+            Text(text = "Start Game")
+        }
+        Button(onClick = navigateToCredits, modifier = Modifier.padding(8.dp)) {
+            Text(text = "Credits")
         }
     }
 }
