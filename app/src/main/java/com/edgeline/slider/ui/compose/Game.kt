@@ -17,9 +17,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.edgeline.slider.viewmodel.GameViewModel
 import kotlinx.coroutines.isActive
 
@@ -28,9 +34,13 @@ fun Game(
     onNavigateBack : () -> Unit,
     viewModel: GameViewModel = GameViewModel()
 ) {
+    val localDensity = LocalDensity.current
     // remember like this maintains whatever value it is set to over recompositions
     // but it does not trigger a recomposition.
-    val rectSizePx = remember { Size(16f, 16f) }
+    val rectSizePx = remember { Size(32f, 32f) }
+    val rectCenter = remember { Offset(rectSizePx.width / 2, rectSizePx.height / 2) }
+    var canvasOffset by remember { mutableStateOf(Offset(0f, 0f)) }
+
     // remember with mutableStateOf makes it observable and changing it will trigger
     // a recomposition.
     var frameTimestamp by remember { mutableStateOf(0L) }
@@ -61,14 +71,26 @@ fun Game(
                 .weight(1f)
                 .background(color = Color(0, 183, 255, 255))
         ) {
-            drawRect(
-                topLeft = Offset(500f, 550f),
-                color = Color.Blue,
-                size = rectSizePx
-            )
+            translate(canvasOffset.x, canvasOffset.y) {
+                // Todo: Don't get a bitmap every recomposition, only do it when a new chunk is needed.
+                drawImage(viewModel.getBitmap(), Offset(0f, 0f))
+                drawRect(
+                    topLeft = this@Canvas.center - rectCenter,
+                    color = Color.Blue,
+                    size = rectSizePx
+                )
+            }
         }
     }
 }
+
+//@Preview
+//@Composable
+//fun GamePreview() {
+//    Game(onNavigateBack = {})
+//}
+
+//
 
 //@Composable
 //fun MovableCircle(
