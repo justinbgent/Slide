@@ -2,6 +2,7 @@ package com.edgeline.slider.ui.compose
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
 import com.edgeline.slider.model.ChunkData
 import com.edgeline.slider.viewmodel.GameViewModel
@@ -39,7 +41,6 @@ fun Game(
     // remember like this maintains whatever value it is set to over recompositions
     // but it does not trigger a recomposition.
     val bgColor = remember { Color(0, 183, 255, 255) }
-    var frameTimestamp = remember { 0L }
 
     // remember with mutableStateOf makes it observable and changing it will trigger
     // a recomposition.
@@ -49,9 +50,8 @@ fun Game(
     // Runs once when composable enters the screen
     LaunchedEffect(Unit) {
         viewModel.setScreenSize(windowInfo.containerSize.height, windowInfo.containerSize.width)
-        viewModel.setBitmapListener { data ->
-            chunkData = data
-        }
+        // Doesn't need remember because LaunchedEffect with key Unit survives across recompositions
+        var frameTimestamp = 0L
         // Loop indefinitely while composable is on screen
         while (isActive) {
             // Suspends till the next animation frame and gets timestamp
@@ -64,17 +64,23 @@ fun Game(
             }
 
             // Update state which triggers recomposition for next frame
-            canvasOffset = viewModel.getCoordinateOffset(now - frameTimestamp)
+            canvasOffset = viewModel.updateGameState(now - frameTimestamp)
+
+            // Update chunks
+            val newChunks = viewModel.updateAndGetChunksIfNeeded()
+            if (newChunks != null) {
+                chunkData = newChunks
+            }
 
             frameTimestamp = now
         }
     }
 
-    Scaffold { innerPadding ->
+    Scaffold { insets ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(insets)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -91,6 +97,11 @@ fun Game(
                     .weight(1f)
                     .background(color = bgColor)
                     .clipToBounds()
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            viewModel.tapVector(offset)
+                        }
+                    }
             ) {
                 translate(canvasOffset.x, canvasOffset.y) {
                     for (data in chunkData) {

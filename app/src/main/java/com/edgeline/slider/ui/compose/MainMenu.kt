@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,16 +18,19 @@ fun MainMenu(
     startGame: () -> Unit,
     navigateToCredits: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Button(onClick = startGame, modifier = Modifier.padding(8.dp)) {
-            Text(text = "Start Game")
-        }
-        Button(onClick = navigateToCredits, modifier = Modifier.padding(8.dp)) {
-            Text(text = "Credits")
+    Scaffold { insets ->
+        Column(
+            modifier = Modifier.fillMaxSize()
+                .padding(insets),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Button(onClick = startGame, modifier = Modifier.padding(8.dp)) {
+                Text(text = "Start Game")
+            }
+            Button(onClick = navigateToCredits, modifier = Modifier.padding(8.dp)) {
+                Text(text = "Credits")
+            }
         }
     }
 }

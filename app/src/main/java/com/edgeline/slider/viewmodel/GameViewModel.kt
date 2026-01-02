@@ -11,11 +11,19 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PaintingStyle
 import androidx.lifecycle.ViewModel
 import com.edgeline.slider.model.ChunkData
+import com.edgeline.slider.model.Vector
 import com.edgeline.slider.model.algorithm.Noise
-import com.edgeline.slider.utility.addY
+import com.edgeline.slider.model.normalize
+import com.edgeline.slider.model.rotate
+import com.edgeline.slider.model.rotationTo
+import com.edgeline.slider.model.times
+import com.edgeline.slider.model.toOffset
+import com.edgeline.slider.model.toVector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.math.PI
 import kotlin.math.max
 
 class GameViewModel() : ViewModel() {
@@ -23,21 +31,30 @@ class GameViewModel() : ViewModel() {
     val playerCenter = Offset(playerSize.width / 2, playerSize.height / 2)
     val playerPosition: Offset
         get() = _playerPosition
-    private var _playerPosition = Offset.Zero
-    private var playerScreenPosition = Offset.Zero
-    private var coordinateOffset = Offset.Zero
-    private val logicScope = CoroutineScope(Dispatchers.Default)
-    private val mainScope = CoroutineScope(Dispatchers.Main)
+
+    // Noise
     private val noise = Noise()
-    private val baseSeed = 6104978
+    private val baseSeed = 610495
     private val gameWidth = 4500
     private val chunkHeight = 2000
-    private val goalDistance = 200f
+    private val halfChunkHeight = chunkHeight / 2
+    private val goalDistance = 150f
     private val squareSize = 64f
+
+    // Used to center chunk 0 on player
+    private var chunkOffsetY = 0f
 
     //    val steadyGroundColor = Color(150, 111, 67, 255)
     private var screenHeight = 0
     private var screenWidth = 0
+    private var coordinateOffset = Offset.Zero
+
+    private var _playerPosition = Offset.Zero
+    private var playerScreenPosition = Offset.Zero
+    private var direction = Vector(0f, 1f)
+    private val speed = 200f
+    private val turnSpeed = PI.toFloat() / 3f
+    private var goalDirection = Vector(0f, 0f)
 
     // Calculated to make the canvas start in the horizontal center of the generated field
     private var chunkTopLeftX = 0f
@@ -50,7 +67,7 @@ class GameViewModel() : ViewModel() {
     private val paint = Paint().apply {
         color = Color.Black
         style = PaintingStyle.Stroke
-        strokeWidth = 2f
+        strokeWidth = 4f
     }
 
     fun setScreenSize(height: Int, width: Int) {
@@ -61,36 +78,43 @@ class GameViewModel() : ViewModel() {
         playerScreenPosition = Offset(screenWidth / 2f, screenHeight / 2f) - playerCenter
         _playerPosition = playerScreenPosition
         Log.i(GameViewModel::class.simpleName, "Chunks to load: $chunksToLoad")
+        chunkOffsetY = playerScreenPosition.y - halfChunkHeight
     }
 
     fun setBitmapListener(listener: (data: List<ChunkData>) -> Unit) {
         bitmapListener = listener
     }
 
-    fun getCoordinateOffset(deltaTime: Long): Offset {
+    fun updateGameState(deltaTime: Long): Offset {
         val timeStep = deltaTime / 1000f
-        val coordinateChange = 100f * timeStep
-        coordinateOffset = coordinateOffset.addY(coordinateChange)
+        moveLogic(timeStep)
         _playerPosition = playerScreenPosition - coordinateOffset
-        updateChunkData()
         return coordinateOffset
     }
 
-    private fun updateChunkData() {
-        currentChunk = coordinateOffset.y.toInt() / chunkHeight
-        if (lastChunk != currentChunk) {
-            getChunks(currentChunk - lastChunk)
-            lastChunk = currentChunk
-        }
+    fun tapVector(tapPosition: Offset) {
+        goalDirection = (tapPosition - playerScreenPosition).toVector() * -1
     }
 
-    private fun getChunks(chunkMovement: Int) {
-        logicScope.launch {
-            val data = updateChunkList(chunkMovement)
-            mainScope.launch {
-                bitmapListener(data)
+    private fun moveLogic(timeStep: Float) {
+        val maxRotation = turnSpeed * timeStep
+        val rot = Math.clamp(direction.rotationTo(goalDirection), -maxRotation, maxRotation)
+        direction = direction.rotate(rot).normalize()
+        coordinateOffset += (direction * speed * timeStep).toOffset()
+    }
+
+    suspend fun updateAndGetChunksIfNeeded(): List<ChunkData>? {
+        val playerYTravel = -(playerPosition.y - playerScreenPosition.y).toInt()
+        currentChunk = (halfChunkHeight + playerYTravel) / chunkHeight
+        if (lastChunk != currentChunk) {
+            val chunkMovement = currentChunk - lastChunk
+            lastChunk = currentChunk
+
+            return withContext(Dispatchers.Default) {
+                updateChunkList(chunkMovement)
             }
         }
+        return null
     }
 
     private fun updateChunkList(chunkMovement: Int): List<ChunkData> {
@@ -137,12 +161,13 @@ class GameViewModel() : ViewModel() {
             canvas.drawRect(
                 point.x,
                 point.y,
-                point.x + squareSize,
-                point.y + squareSize,
+                // Span the same amount of units as squareSize
+                point.x + squareSize - 1,
+                point.y + squareSize - 1,
                 paint
             )
         }
-        val offset = Offset(chunkTopLeftX, (-chunk * chunkHeight).toFloat())
+        val offset = Offset(chunkTopLeftX, (-chunk * chunkHeight + chunkOffsetY))
         return ChunkData(chunk, bitmap, offset)
     }
 
@@ -158,11 +183,18 @@ class GameViewModel() : ViewModel() {
 
     fun sampleRect(chunk: Int): List<Offset> {
         // Take in both height bounds by quarterGoal to make tiling nearly seamless
+        // Plus subtract squareSize from right and bottom bounds to account for the squares
         val quarterGoal = goalDistance / 4
         val topLeft = Offset(0f, quarterGoal)
-        val newHeight = chunkHeight - quarterGoal * 2
+        val newHeight = chunkHeight - quarterGoal * 2 - squareSize
         val seed = baseSeed + chunk
-        return noise.sampleRectangle(gameWidth.toFloat(), newHeight, goalDistance, topLeft, seed)
+        return noise.sampleRectangle(
+            gameWidth.toFloat() - squareSize,
+            newHeight,
+            goalDistance,
+            topLeft,
+            seed
+        )
     }
 }
 // So when I translate the canvas pausitively, I'm shifting the grid down.
