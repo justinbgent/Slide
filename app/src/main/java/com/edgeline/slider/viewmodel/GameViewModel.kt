@@ -1,6 +1,8 @@
 package com.edgeline.slider.viewmodel
 
+import android.util.Log
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -10,12 +12,20 @@ import androidx.compose.ui.graphics.PaintingStyle
 import androidx.lifecycle.ViewModel
 import com.edgeline.slider.model.ChunkData
 import com.edgeline.slider.model.algorithm.Noise
+import com.edgeline.slider.utility.addY
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlin.math.max
 
 class GameViewModel() : ViewModel() {
+    val playerSize = Size(32f, 32f)
+    val playerCenter = Offset(playerSize.width / 2, playerSize.height / 2)
+    val playerPosition: Offset
+        get() = _playerPosition
+    private var _playerPosition = Offset.Zero
+    private var playerScreenPosition = Offset.Zero
+    private var coordinateOffset = Offset.Zero
     private val logicScope = CoroutineScope(Dispatchers.Default)
     private val mainScope = CoroutineScope(Dispatchers.Main)
     private val noise = Noise()
@@ -24,12 +34,13 @@ class GameViewModel() : ViewModel() {
     private val chunkHeight = 2000
     private val goalDistance = 200f
     private val squareSize = 64f
-//    val steadyGroundColor = Color(150, 111, 67, 255)
+
+    //    val steadyGroundColor = Color(150, 111, 67, 255)
     private var screenHeight = 0
     private var screenWidth = 0
+
     // Calculated to make the canvas start in the horizontal center of the generated field
-    private var topLeftX = 0f
-    private var yOffset = 0f
+    private var chunkTopLeftX = 0f
     private var lastChunk = -1
     private var currentChunk = 0
     private lateinit var bitmapListener: (data: List<ChunkData>) -> Unit
@@ -45,63 +56,78 @@ class GameViewModel() : ViewModel() {
     fun setScreenSize(height: Int, width: Int) {
         screenHeight = height
         screenWidth = width
-        topLeftX = -(gameWidth - screenWidth) / 2f
+        chunkTopLeftX = -(gameWidth - screenWidth) / 2f
         chunksToLoad = max(screenHeight / chunkHeight + 1, 3)
-    }
-    fun generateBitmap(listener: (data: List<ChunkData>) -> Unit) {
-        bitmapListener = listener
-        getNewBitmap(0)
+        playerScreenPosition = Offset(screenWidth / 2f, screenHeight / 2f) - playerCenter
+        _playerPosition = playerScreenPosition
+        Log.i(GameViewModel::class.simpleName, "Chunks to load: $chunksToLoad")
     }
 
-    fun updateCanvasYOffset(canvasOffsetY: Float){
-        yOffset = canvasOffsetY
-        currentChunk = yOffset.toInt() / chunkHeight
+    fun setBitmapListener(listener: (data: List<ChunkData>) -> Unit) {
+        bitmapListener = listener
+    }
+
+    fun getCoordinateOffset(deltaTime: Long): Offset {
+        val timeStep = deltaTime / 1000f
+        val coordinateChange = 100f * timeStep
+        coordinateOffset = coordinateOffset.addY(coordinateChange)
+        _playerPosition = playerScreenPosition - coordinateOffset
+        updateChunkData()
+        return coordinateOffset
+    }
+
+    private fun updateChunkData() {
+        currentChunk = coordinateOffset.y.toInt() / chunkHeight
         if (lastChunk != currentChunk) {
-            getNewBitmap(currentChunk - lastChunk)
+            getChunks(currentChunk - lastChunk)
             lastChunk = currentChunk
         }
     }
 
-    // For collision checks
-    fun updatePlayerPosition(newPosition: Offset){
-    }
-
-    private fun getNewBitmap(chunkMovement: Int) {
+    private fun getChunks(chunkMovement: Int) {
         logicScope.launch {
-            val data = getBitmaps(chunkMovement)
+            val data = updateChunkList(chunkMovement)
             mainScope.launch {
                 bitmapListener(data)
             }
         }
     }
 
-    private fun getBitmaps(chunkMovement: Int): List<ChunkData> {
-        val midIndex = if (chunksToLoad % 2 != 0){ chunksToLoad / 2 }
-        else { chunksToLoad / 2 - 1 }
-
-        if (chunks.size != chunksToLoad){
-            for (i in 0 until chunksToLoad){
-                chunks.add(getBitmap(i - midIndex))
-            }
+    private fun updateChunkList(chunkMovement: Int): List<ChunkData> {
+        val midIndex = if (chunksToLoad % 2 != 0) {
+            chunksToLoad / 2
+        } else {
+            chunksToLoad / 2 - 1
         }
-        else {
+        Log.i(GameViewModel::class.simpleName, "MidIndex: $midIndex")
+        Log.i(GameViewModel::class.simpleName, "ChunkMovement: $chunkMovement")
+
+        if (chunks.isEmpty()) {
+            for (i in 0 until chunksToLoad) {
+                chunks.add(generateChunk(i - midIndex))
+            }
+            Log.i(GameViewModel::class.simpleName, "ChunkList Size: ${chunks.size}")
+        } else {
             // Find out whether I moved forward or backward a chunk and remove the far out and add
             // a closer chunk.
-            val previousChunk = currentChunk + chunkMovement
-            if (chunkMovement > 0){
+            val previousChunk = currentChunk - chunkMovement
+            Log.i(GameViewModel::class.simpleName, "Previous Chunk: $previousChunk")
+            if (chunkMovement > 0) {
                 val chunk = chunks.find { it.chunk == previousChunk - midIndex }
                 chunks.remove(chunk)
-                chunks.add(getBitmap(currentChunk + midIndex))
+                chunks.add(generateChunk(currentChunk + midIndex))
             } else {
                 val chunk = chunks.find { it.chunk == previousChunk + chunksToLoad / 2 }
                 chunks.remove(chunk)
-                chunks.add(getBitmap(currentChunk - midIndex))
+                chunks.add(generateChunk(currentChunk - midIndex))
             }
         }
-        return chunks
+        // Make a shallow copy to return to UI thread. Deep copy isn't needed because objects in
+        // list aren't modified.
+        return chunks.toList()
     }
 
-    private fun getBitmap(chunk: Int): ChunkData {
+    private fun generateChunk(chunk: Int): ChunkData {
         val bitmap = ImageBitmap(gameWidth, chunkHeight, ImageBitmapConfig.Argb8888)
         val canvas = Canvas(bitmap)
 
@@ -113,10 +139,11 @@ class GameViewModel() : ViewModel() {
                 point.y,
                 point.x + squareSize,
                 point.y + squareSize,
-                paint)
+                paint
+            )
         }
-
-        return ChunkData(chunk, bitmap, Offset(topLeftX, -chunk * chunkHeight.toFloat()))
+        val offset = Offset(chunkTopLeftX, (-chunk * chunkHeight).toFloat())
+        return ChunkData(chunk, bitmap, offset)
     }
 
     // I need to sample a rectangle for every chunk
