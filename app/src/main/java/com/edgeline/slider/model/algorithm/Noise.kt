@@ -11,7 +11,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
 
-class BlueNoise() {
+class Noise() {
     /// Cells are divided into two triangles via a diagonal line from
     /// two opposite cell corners. Depending on which diagonal is used, the
     /// below values represent the unused triangle of a cell. None means whole
@@ -27,12 +27,22 @@ class BlueNoise() {
     val cellsPerMinDistance = 1
     // The max index distance from selected cell
     val maxCellDist = 2
-    var random = Random(124342)
+    lateinit var random: Random
 
+    fun sampleRectangle(
+        width: Float,
+        height: Float,
+        goalDistance: Float,
+        topLeft: Offset,
+        seed: Int
+    ): List<Offset> {
+        random = Random(seed)
+        return sampleRectangle(width, height, goalDistance, topLeft)
+    }
 
     /// A rough sampling technique with points a relative distance apart from each other.
-    fun sampleRectangle(
-        width: Int, height: Int, goalDistance: Float, xOffset: Float = 0f, yOffset: Float = 0f
+    private fun sampleRectangle(
+        width: Float, height: Float, goalDistance: Float, topLeft: Offset
     ): List<Offset> {
         val points = mutableListOf<Offset>()
         val cellSize = goalDistance / cellsPerMinDistance
@@ -54,7 +64,7 @@ class BlueNoise() {
                 val position = availableCells.size
                 availableCells.add(flattenedIndex)
                 flattenedToAvailable[flattenedIndex] = position
-                Cell(x * cellSize + xOffset, y * cellSize + yOffset, CellTriangle.None)
+                Cell(x * cellSize + topLeft.x, y * cellSize + topLeft.y, CellTriangle.None)
             }
         }
 
@@ -113,7 +123,8 @@ class BlueNoise() {
             }
 
             // If point is not out of bounds, add to list.
-            if (!(point.x > width || point.y > height)) {
+            if (!(point.x > width + topLeft.x || point.y > height + topLeft.y ||
+                    point.x < topLeft.x || point.y < topLeft.y)) {
                 points.add(Offset(point.x, point.y))
             }
 
@@ -206,18 +217,6 @@ class BlueNoise() {
         }
 
         return points
-    }
-
-    fun sampleRectangle(
-        width: Int,
-        height: Int,
-        minimumDistance: Float,
-        seed: Int,
-        xOffset: Float = 0f,
-        yOffset: Float = 0f
-    ): List<Offset> {
-        random = Random(seed)
-        return sampleRectangle(width, height, minimumDistance, xOffset, yOffset)
     }
 
 }

@@ -4,17 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.edgeline.slider.model.Screen
+import com.edgeline.slider.model.Window
 import com.edgeline.slider.ui.compose.Credits
 import com.edgeline.slider.ui.compose.MainMenu
 import com.edgeline.slider.ui.compose.Game
@@ -39,21 +33,21 @@ fun Screens(){
         navController.popBackStack()
     }
 
-        NavHost(navController = navController, startDestination = Screen.MainMenu.name) {
-            composable(Screen.MainMenu.name) {
+        NavHost(navController = navController, startDestination = Window.MainMenu.name) {
+            composable(Window.MainMenu.name) {
                 MainMenu(
                     startGame = {
-                        navController.navigate(Screen.Game.name)
+                        navController.navigate(Window.Game.name)
                     },
                     navigateToCredits = {
-                        navController.navigate(Screen.Credits.name)
+                        navController.navigate(Window.Credits.name)
                     }
                 )
             }
-            composable(Screen.Game.name) {
+            composable(Window.Game.name) {
                 Game(onNavigateBack)
             }
-            composable(Screen.Credits.name) {
+            composable(Window.Credits.name) {
                 Credits(onNavigateBack)
             }
         }

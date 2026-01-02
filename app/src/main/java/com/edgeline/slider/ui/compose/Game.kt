@@ -17,40 +17,59 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalWindowInfo
+import com.edgeline.slider.model.ChunkData
+import com.edgeline.slider.utility.addY
 import com.edgeline.slider.viewmodel.GameViewModel
 import kotlinx.coroutines.isActive
 
 @Composable
 fun Game(
-    onNavigateBack : () -> Unit,
+    onNavigateBack: () -> Unit,
     viewModel: GameViewModel = GameViewModel()
 ) {
-    val localDensity = LocalDensity.current
+    val density = LocalDensity.current
+    val windowInfo = LocalWindowInfo.current
+
     // remember like this maintains whatever value it is set to over recompositions
     // but it does not trigger a recomposition.
     val rectSizePx = remember { Size(32f, 32f) }
     val rectCenter = remember { Offset(rectSizePx.width / 2, rectSizePx.height / 2) }
-    var canvasOffset by remember { mutableStateOf(Offset(0f, 0f)) }
+    val bgColor = remember { Color(0, 183, 255, 255) }
+    var frameTimestamp = remember { 0L }
 
     // remember with mutableStateOf makes it observable and changing it will trigger
     // a recomposition.
-    var frameTimestamp by remember { mutableStateOf(0L) }
+    var coordinateOffset by remember { mutableStateOf(Offset(0f, 0f)) }
+    var chunkData by remember { mutableStateOf(listOf<ChunkData>()) }
 
+    // Runs once when composable enters the screen
     LaunchedEffect(Unit) {
+        viewModel.setScreenSize(windowInfo.containerSize.height, windowInfo.containerSize.width)
+        viewModel.generateBitmap { data ->
+            chunkData = data
+        }
         // Loop indefinitely while composable is on screen
         while (isActive) {
             // Suspends till the next animation frame and gets timestamp
             val now = withFrameMillis { it }
+
+            // Don't calculate movement on the first frame
+            if (frameTimestamp == 0L) {
+                frameTimestamp = now
+                continue
+            }
+
+            val coordinateChange = 100f * (now - frameTimestamp) / 1000f
             // Update state which triggers recomposition for next frame
+            coordinateOffset = coordinateOffset.addY(coordinateChange)
+            viewModel.updateCanvasYOffset(coordinateOffset.y)
+
             frameTimestamp = now
         }
     }
@@ -69,13 +88,16 @@ fun Game(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(color = Color(0, 183, 255, 255))
+                .background(color = bgColor)
         ) {
-            translate(canvasOffset.x, canvasOffset.y) {
-                // Todo: Don't get a bitmap every recomposition, only do it when a new chunk is needed.
-                drawImage(viewModel.getBitmap(), Offset(0f, 0f))
+            translate(coordinateOffset.x, coordinateOffset.y) {
+                for (data in chunkData) {
+                    drawImage(data.bitmap, data.offset)
+                }
+                val playerPosition = this@Canvas.center - coordinateOffset - rectCenter
+                viewModel.updatePlayerPosition(playerPosition)
                 drawRect(
-                    topLeft = this@Canvas.center - rectCenter,
+                    topLeft = playerPosition,
                     color = Color.Blue,
                     size = rectSizePx
                 )
