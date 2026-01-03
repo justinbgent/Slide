@@ -20,9 +20,7 @@ import com.edgeline.slider.model.rotationTo
 import com.edgeline.slider.model.times
 import com.edgeline.slider.model.toOffset
 import com.edgeline.slider.model.toVector
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.abs
@@ -35,16 +33,9 @@ class GameViewModel() : ViewModel() {
         get() = _playerPosition
     val score: Int
         get() = _score
+    val direction: Offset
+        get() = _direction.toOffset()
 
-    // Noise
-    private val noise = Noise()
-    private val baseSeed = 610495
-    private val gameWidth = 4500
-    private val chunkHeight = 2000
-    private val halfChunkHeight = chunkHeight / 2
-    private val goalDistance = 150f
-    private val squareSize = 64f
-    private val chunkPoints = mutableMapOf<Int, List<Rectangle>>()
 
     // Used to center chunk 0 on player
     private var chunkOffsetY = 0f
@@ -54,11 +45,28 @@ class GameViewModel() : ViewModel() {
     private var screenWidth = 0
     private var coordinateOffset = Offset.Zero
 
+    // Noise
+    private val noise = Noise()
+    private val baseSeed = 6104970
+    private val gameWidth = 4500
+    private val chunkHeight = 2000
+    private val halfChunkHeight = chunkHeight / 2
+    private val goalDistance = 200f
+    private val chunkPoints = mutableMapOf<Int, List<Rectangle>>()
+    private val squareSize = 64f
+    private val halfStroke = 2f // Needed because half of stroke is outside the square dimensions
+    private val paint = Paint().apply {
+        color = Color.Black
+        style = PaintingStyle.Stroke
+        strokeWidth = halfStroke * 2f
+    }
+
     private var _playerPosition = Offset.Zero
     private var playerScreenPosition = Offset.Zero
-    private val speed = 200f
+    private val speed = 300f
     private val turnSpeed = PI.toFloat() / 3f
-    private var direction = Vector(0f, 1f)
+    // Note that direction is the canvas's offset direction, player's direction is opposite
+    private var _direction = Vector(0f, 1f)
     private var goalDirection = Vector(0f, 0f)
     private var _score = 0
     private val scoreIncreaseDist = squareSize.toInt()
@@ -67,15 +75,8 @@ class GameViewModel() : ViewModel() {
     private var chunkTopLeftX = 0f
     private var lastChunk = -1
     private var currentChunk = 0
-    private lateinit var bitmapListener: (data: List<ChunkData>) -> Unit
     private val chunks = mutableListOf<ChunkData>()
     private var chunksToLoad: Int = 0
-
-    private val paint = Paint().apply {
-        color = Color.Black
-        style = PaintingStyle.Stroke
-        strokeWidth = 4f
-    }
 
     fun setScreenSize(height: Int, width: Int) {
         screenHeight = height
@@ -101,9 +102,9 @@ class GameViewModel() : ViewModel() {
 
     private fun moveLogic(timeStep: Float) {
         val maxRotation = turnSpeed * timeStep
-        val rot = Math.clamp(direction.rotationTo(goalDirection), -maxRotation, maxRotation)
-        direction = direction.rotate(rot).normalize()
-        coordinateOffset += (direction * speed * timeStep).toOffset()
+        val rot = Math.clamp(_direction.rotationTo(goalDirection), -maxRotation, maxRotation)
+        _direction = _direction.rotate(rot).normalize()
+        coordinateOffset += (_direction * speed * timeStep).toOffset()
     }
 
     suspend fun updateAndGetChunksIfNeeded(): List<ChunkData>? {
@@ -124,6 +125,7 @@ class GameViewModel() : ViewModel() {
         return null
     }
 
+    var endRectPos = Offset.Zero
     suspend fun isGameOver(): Boolean {
         if (!chunkPoints.containsKey(currentChunk)) {
             return false
@@ -131,13 +133,15 @@ class GameViewModel() : ViewModel() {
         return withContext(Dispatchers.Default) {
             val player =
                 Rectangle(
-                    playerPosition.x + playerCenter.x,
-                    playerPosition.y + playerCenter.y,
+                    playerPosition.x,
+                    playerPosition.y,
                     playerSize.width,
                     playerSize.height
                 )
             for (rect in chunkPoints[currentChunk]!!) {
                 if (rect.Intersects(player)) {
+                    Log.i(GameViewModel::class.simpleName, "Player position $playerPosition, intersected ${rect.left}, ${rect.top}")
+                    endRectPos = Offset(rect.left, rect.top)
                     return@withContext true
                 }
             }
@@ -151,25 +155,26 @@ class GameViewModel() : ViewModel() {
         } else {
             chunksToLoad / 2 - 1
         }
-        Log.i(GameViewModel::class.simpleName, "MidIndex: $midIndex")
-        Log.i(GameViewModel::class.simpleName, "ChunkMovement: $chunkMovement")
+//        Log.i(GameViewModel::class.simpleName, "MidIndex: $midIndex")
+//        Log.i(GameViewModel::class.simpleName, "ChunkMovement: $chunkMovement")
 
         if (chunks.isEmpty()) {
             for (i in 0 until chunksToLoad) {
                 chunks.add(generateChunk(i - midIndex))
             }
-            Log.i(GameViewModel::class.simpleName, "ChunkList Size: ${chunks.size}")
+//            Log.i(GameViewModel::class.simpleName, "ChunkList Size: ${chunks.size}")
         } else {
             // Find out whether I moved forward or backward a chunk and remove the far out and add
             // a closer chunk.
             val previousChunk = currentChunk - chunkMovement
-            Log.i(GameViewModel::class.simpleName, "Previous Chunk: $previousChunk")
-            val chunk = if (chunkMovement > 0) {
+//            Log.i(GameViewModel::class.simpleName, "Previous Chunk: $previousChunk")
+            val chunk: ChunkData?
+            if (chunkMovement > 0) {
+                chunk = chunks.find { it.chunk == previousChunk - midIndex }
                 chunks.add(generateChunk(currentChunk + midIndex))
-                chunks.find { it.chunk == previousChunk - midIndex }
             } else {
+                chunk = chunks.find { it.chunk == previousChunk + chunksToLoad / 2 }
                 chunks.add(generateChunk(currentChunk - midIndex))
-                chunks.find { it.chunk == previousChunk + chunksToLoad / 2 }
             }
             if (chunk != null) {
                 chunks.remove(chunk)
@@ -185,8 +190,10 @@ class GameViewModel() : ViewModel() {
         val bitmap = ImageBitmap(gameWidth, chunkHeight, ImageBitmapConfig.Argb8888)
         val canvas = Canvas(bitmap)
 
-        val points = sampleRect(chunk)
+        val points = sampleRectArea(chunk)
         val rectangles = mutableListOf<Rectangle>()
+        // Players are going further negative typically so positive chunks will be forward.
+        val yOffset = -chunk * chunkHeight + chunkOffsetY
 
         for (point in points) {
             canvas.drawRect(
@@ -196,33 +203,32 @@ class GameViewModel() : ViewModel() {
                 point.y + squareSize,
                 paint
             )
-            rectangles.add(Rectangle(point.x, point.y, squareSize, squareSize))
+            rectangles.add(
+                Rectangle(
+                    point.x + chunkTopLeftX,
+                    point.y + yOffset,
+                    squareSize,
+                    squareSize
+                )
+            )
         }
         chunkPoints[chunk] = rectangles
 
-        val offset = Offset(chunkTopLeftX, (-chunk * chunkHeight + chunkOffsetY))
+        val offset = Offset(chunkTopLeftX, yOffset)
         return ChunkData(chunk, bitmap, offset)
     }
 
-    // I need to sample a rectangle for every chunk
-    // Different screens will vary in the quantity of chunks that are shown
-    // So somehow this viewmodel needs to calculate when a new chunk bitmap needs
-    //      to be generated and when to no longer hold reference to old chunks.
-    // My Game.kt compose file will need to simply draw all of the bitmaps it is given to
-    //      the canvas.
-    // So make the returned bitmap into a list of them.
-    // Game.kt will need to feed me frame by frame updates of its center canvas coordinate
-    //      from which I'll calculate all of this stuff.
-
-    fun sampleRect(chunk: Int): List<Offset> {
+    fun sampleRectArea(chunk: Int): List<Offset> {
         // Take in both height bounds by quarterGoal to make tiling nearly seamless
         // Plus subtract squareSize from right and bottom bounds to account for the squares
+        // Then account for square's stroke that goes over square bounds by half of the stroke
+        //      on the left and right
         val quarterGoal = goalDistance / 4
-        val topLeft = Offset(0f, quarterGoal)
+        val topLeft = Offset(0f + halfStroke, quarterGoal)
         val newHeight = chunkHeight - quarterGoal * 2 - squareSize
         val seed = baseSeed + chunk
         return noise.sampleRectangle(
-            gameWidth.toFloat() - squareSize,
+            gameWidth.toFloat() - squareSize - halfStroke * 2,
             newHeight,
             goalDistance,
             topLeft,

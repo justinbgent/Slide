@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -48,6 +48,7 @@ fun Game(
     // remember like this maintains whatever value it is set to over recompositions
     // but it does not trigger a recomposition.
     val bgColor = remember { Color(0, 183, 255, 255) }
+    var collisionRect = remember { Offset(0f, 0f) }
 
     // remember with mutableStateOf makes it observable and changing it will trigger
     // a recomposition.
@@ -81,10 +82,11 @@ fun Game(
                 chunkData = newChunks
             }
 
-//            if (viewModel.isGameOver()){
-//                isGameOver = true
-//                break
-//            }
+            if (viewModel.isGameOver()){
+                isGameOver = true
+                collisionRect = viewModel.endRectPos
+                break
+            }
 
             // Update score
             if (viewModel.score != score){
@@ -129,21 +131,35 @@ fun Game(
                     for (data in chunkData) {
                         drawImage(data.bitmap, data.offset)
                     }
+
+                    // Directional line
+                    val playerCenter = Offset(viewModel.playerPosition.x + viewModel.playerCenter.x, viewModel.playerPosition.y + viewModel.playerCenter.y)
+                    val lineEnd = Offset(playerCenter.x - viewModel.direction.x * 48f, playerCenter.y - viewModel.direction.y * 48f)
+                    val arrowPath = Path().apply {
+                        moveTo(playerCenter.x, playerCenter.y)
+                        lineTo(lineEnd.x, lineEnd.y)
+                    }
+                    drawPath(
+                        path = arrowPath,
+                        color = Color.Black,
+                        style = Stroke(8f, cap = StrokeCap.Round)
+                    )
+
+                    // Player
                     drawRect(
                         topLeft = viewModel.playerPosition,
                         color = Color.Blue,
                         size = viewModel.playerSize
                     )
-                    // To be used with direction in viewmodel to draw line correctly
-//                    val arrowPath = Path().apply {
-//                        moveTo(0f, 0f)
-//                        lineTo(10f, 10f)
-//                    }
-//                    drawPath(
-//                        path = arrowPath,
-//                        color = Color.Black,
-//                        style = Stroke(8f, cap = StrokeCap.Round)
-//                    )
+
+                    // Collision
+                    if (isGameOver) {
+                        drawRect(
+                            topLeft = collisionRect,
+                            color = Color.Red,
+                            size = Size(64f, 64f)
+                        )
+                    }
                 }
             }
         }
