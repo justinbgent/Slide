@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PaintingStyle
 import androidx.lifecycle.ViewModel
 import com.edgeline.slider.model.ChunkData
+import com.edgeline.slider.model.Rectangle
 import com.edgeline.slider.model.Vector
 import com.edgeline.slider.model.algorithm.Noise
 import com.edgeline.slider.model.normalize
@@ -24,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.max
 
 class GameViewModel() : ViewModel() {
@@ -31,6 +33,8 @@ class GameViewModel() : ViewModel() {
     val playerCenter = Offset(playerSize.width / 2, playerSize.height / 2)
     val playerPosition: Offset
         get() = _playerPosition
+    val score: Int
+        get() = _score
 
     // Noise
     private val noise = Noise()
@@ -40,6 +44,7 @@ class GameViewModel() : ViewModel() {
     private val halfChunkHeight = chunkHeight / 2
     private val goalDistance = 150f
     private val squareSize = 64f
+    private val chunkPoints = mutableMapOf<Int, List<Rectangle>>()
 
     // Used to center chunk 0 on player
     private var chunkOffsetY = 0f
@@ -51,10 +56,12 @@ class GameViewModel() : ViewModel() {
 
     private var _playerPosition = Offset.Zero
     private var playerScreenPosition = Offset.Zero
-    private var direction = Vector(0f, 1f)
     private val speed = 200f
     private val turnSpeed = PI.toFloat() / 3f
+    private var direction = Vector(0f, 1f)
     private var goalDirection = Vector(0f, 0f)
+    private var _score = 0
+    private val scoreIncreaseDist = squareSize.toInt()
 
     // Calculated to make the canvas start in the horizontal center of the generated field
     private var chunkTopLeftX = 0f
@@ -81,10 +88,6 @@ class GameViewModel() : ViewModel() {
         chunkOffsetY = playerScreenPosition.y - halfChunkHeight
     }
 
-    fun setBitmapListener(listener: (data: List<ChunkData>) -> Unit) {
-        bitmapListener = listener
-    }
-
     fun updateGameState(deltaTime: Long): Offset {
         val timeStep = deltaTime / 1000f
         moveLogic(timeStep)
@@ -105,6 +108,10 @@ class GameViewModel() : ViewModel() {
 
     suspend fun updateAndGetChunksIfNeeded(): List<ChunkData>? {
         val playerYTravel = -(playerPosition.y - playerScreenPosition.y).toInt()
+        val newScore = abs(playerYTravel) / scoreIncreaseDist
+        if (newScore > _score) {
+            _score = newScore
+        }
         currentChunk = (halfChunkHeight + playerYTravel) / chunkHeight
         if (lastChunk != currentChunk) {
             val chunkMovement = currentChunk - lastChunk
@@ -115,6 +122,27 @@ class GameViewModel() : ViewModel() {
             }
         }
         return null
+    }
+
+    suspend fun isGameOver(): Boolean {
+        if (!chunkPoints.containsKey(currentChunk)) {
+            return false
+        }
+        return withContext(Dispatchers.Default) {
+            val player =
+                Rectangle(
+                    playerPosition.x + playerCenter.x,
+                    playerPosition.y + playerCenter.y,
+                    playerSize.width,
+                    playerSize.height
+                )
+            for (rect in chunkPoints[currentChunk]!!) {
+                if (rect.Intersects(player)) {
+                    return@withContext true
+                }
+            }
+            false
+        }
     }
 
     private fun updateChunkList(chunkMovement: Int): List<ChunkData> {
@@ -136,14 +164,16 @@ class GameViewModel() : ViewModel() {
             // a closer chunk.
             val previousChunk = currentChunk - chunkMovement
             Log.i(GameViewModel::class.simpleName, "Previous Chunk: $previousChunk")
-            if (chunkMovement > 0) {
-                val chunk = chunks.find { it.chunk == previousChunk - midIndex }
-                chunks.remove(chunk)
+            val chunk = if (chunkMovement > 0) {
                 chunks.add(generateChunk(currentChunk + midIndex))
+                chunks.find { it.chunk == previousChunk - midIndex }
             } else {
-                val chunk = chunks.find { it.chunk == previousChunk + chunksToLoad / 2 }
-                chunks.remove(chunk)
                 chunks.add(generateChunk(currentChunk - midIndex))
+                chunks.find { it.chunk == previousChunk + chunksToLoad / 2 }
+            }
+            if (chunk != null) {
+                chunks.remove(chunk)
+                chunkPoints.remove(chunk.chunk)
             }
         }
         // Make a shallow copy to return to UI thread. Deep copy isn't needed because objects in
@@ -156,17 +186,20 @@ class GameViewModel() : ViewModel() {
         val canvas = Canvas(bitmap)
 
         val points = sampleRect(chunk)
+        val rectangles = mutableListOf<Rectangle>()
 
         for (point in points) {
             canvas.drawRect(
                 point.x,
                 point.y,
-                // Span the same amount of units as squareSize
-                point.x + squareSize - 1,
-                point.y + squareSize - 1,
+                point.x + squareSize,
+                point.y + squareSize,
                 paint
             )
+            rectangles.add(Rectangle(point.x, point.y, squareSize, squareSize))
         }
+        chunkPoints[chunk] = rectangles
+
         val offset = Offset(chunkTopLeftX, (-chunk * chunkHeight + chunkOffsetY))
         return ChunkData(chunk, bitmap, offset)
     }

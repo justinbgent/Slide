@@ -5,9 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -23,9 +25,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.edgeline.slider.model.ChunkData
 import com.edgeline.slider.viewmodel.GameViewModel
 import kotlinx.coroutines.isActive
@@ -46,6 +53,8 @@ fun Game(
     // a recomposition.
     var canvasOffset by remember { mutableStateOf(Offset(0f, 0f)) }
     var chunkData by remember { mutableStateOf(listOf<ChunkData>()) }
+    var score by remember { mutableStateOf(0) }
+    var isGameOver by remember { mutableStateOf(false) }
 
     // Runs once when composable enters the screen
     LaunchedEffect(Unit) {
@@ -72,6 +81,16 @@ fun Game(
                 chunkData = newChunks
             }
 
+//            if (viewModel.isGameOver()){
+//                isGameOver = true
+//                break
+//            }
+
+            // Update score
+            if (viewModel.score != score){
+                score = viewModel.score
+            }
+
             frameTimestamp = now
         }
     }
@@ -82,11 +101,14 @@ fun Game(
                 .fillMaxSize()
                 .padding(insets)
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.Top,
-                horizontalAlignment = Alignment.End
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                Text(text = "Score: $score", fontSize = 24.sp)
                 Button(onClick = onNavigateBack) {
                     Text(text = "Return to Menu")
                 }
@@ -112,6 +134,16 @@ fun Game(
                         color = Color.Blue,
                         size = viewModel.playerSize
                     )
+                    // To be used with direction in viewmodel to draw line correctly
+//                    val arrowPath = Path().apply {
+//                        moveTo(0f, 0f)
+//                        lineTo(10f, 10f)
+//                    }
+//                    drawPath(
+//                        path = arrowPath,
+//                        color = Color.Black,
+//                        style = Stroke(8f, cap = StrokeCap.Round)
+//                    )
                 }
             }
         }
