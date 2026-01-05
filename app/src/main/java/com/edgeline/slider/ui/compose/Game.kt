@@ -53,13 +53,13 @@ fun Game(
     // remember with mutableStateOf makes it observable and changing it will trigger
     // a recomposition.
     var canvasOffset by remember { mutableStateOf(Offset(0f, 0f)) }
-    var chunkData by remember { mutableStateOf(listOf<ChunkData>()) }
+    var visualData by remember { mutableStateOf(listOf<ChunkData>()) }
     var score by remember { mutableStateOf(0) }
     var isGameOver by remember { mutableStateOf(false) }
 
     // Runs once when composable enters the screen
     LaunchedEffect(Unit) {
-        viewModel.setScreenSize(windowInfo.containerSize.height, windowInfo.containerSize.width)
+        viewModel.initialize(windowInfo.containerSize.width, windowInfo.containerSize.height)
         // Doesn't need remember because LaunchedEffect with key Unit survives across recompositions
         var frameTimestamp = 0L
         // Loop indefinitely while composable is on screen
@@ -73,14 +73,14 @@ fun Game(
                 continue
             }
 
-            // Update state which triggers recomposition for next frame
-            canvasOffset = viewModel.updateGameState(now - frameTimestamp)
-
             // Update chunks
-            val newChunks = viewModel.updateAndGetChunksIfNeeded()
-            if (newChunks != null) {
-                chunkData = newChunks
+            val newVisuals = viewModel.updateSystems(now - frameTimestamp)
+            if (newVisuals != null) {
+                visualData = newVisuals
             }
+
+            // Update state which triggers recomposition for next frame
+            canvasOffset = viewModel.canvasOffset
 
             if (viewModel.isGameOver()){
                 isGameOver = true
@@ -128,22 +128,23 @@ fun Game(
                     }
             ) {
                 translate(canvasOffset.x, canvasOffset.y) {
-                    for (data in chunkData) {
+                    for (data in visualData) {
                         drawImage(data.bitmap, data.offset)
                     }
 
                     // Directional line
-                    val playerCenter = Offset(viewModel.playerPosition.x + viewModel.playerCenter.x, viewModel.playerPosition.y + viewModel.playerCenter.y)
-                    val lineEnd = Offset(playerCenter.x - viewModel.direction.x * 48f, playerCenter.y - viewModel.direction.y * 48f)
-                    val arrowPath = Path().apply {
-                        moveTo(playerCenter.x, playerCenter.y)
-                        lineTo(lineEnd.x, lineEnd.y)
-                    }
-                    drawPath(
-                        path = arrowPath,
-                        color = Color.Black,
-                        style = Stroke(8f, cap = StrokeCap.Round)
-                    )
+//                    val playerCenter = Offset(viewModel.playerPosition.x + viewModel.playerCenter.x, viewModel.playerPosition.y + viewModel.playerCenter.y)
+//                    val lineDirection = viewModel.direction * 48f
+//                    val lineEnd = Offset(playerCenter.x + lineDirection.x, playerCenter.y + lineDirection.y)
+//                    val arrowPath = Path().apply {
+//                        moveTo(playerCenter.x, playerCenter.y)
+//                        lineTo(lineEnd.x, lineEnd.y)
+//                    }
+//                    drawPath(
+//                        path = arrowPath,
+//                        color = Color.Black,
+//                        style = Stroke(8f, cap = StrokeCap.Round)
+//                    )
 
                     // Player
                     drawRect(
