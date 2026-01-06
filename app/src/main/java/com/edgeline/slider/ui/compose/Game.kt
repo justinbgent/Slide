@@ -4,8 +4,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,11 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -82,14 +80,14 @@ fun Game(
             // Update state which triggers recomposition for next frame
             canvasOffset = viewModel.canvasOffset
 
-            if (viewModel.isGameOver()){
+            if (viewModel.isGameOver()) {
                 isGameOver = true
-                collisionRect = viewModel.endRectPos
+//                collisionRect = viewModel.endRectPos
                 break
             }
 
             // Update score
-            if (viewModel.score != score){
+            if (viewModel.score != score) {
                 score = viewModel.score
             }
 
@@ -115,24 +113,51 @@ fun Game(
                     Text(text = "Return to Menu")
                 }
             }
-            Canvas(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .background(color = bgColor)
-                    .clipToBounds()
-                    .pointerInput(Unit) {
-                        detectTapGestures { offset ->
-                            viewModel.tapVector(offset)
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            )
+            {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .background(color = bgColor)
+                        .clipToBounds()
+                        .pointerInput(Unit) {
+                            detectTapGestures { offset ->
+                                viewModel.tapVector(offset)
+                            }
                         }
-                    }
-            ) {
-                translate(canvasOffset.x, canvasOffset.y) {
-                    for (data in visualData) {
-                        drawImage(data.bitmap, data.offset)
-                    }
+                ) {
+                    translate(canvasOffset.x, canvasOffset.y) {
+                        for (data in visualData) {
+                            drawImage(data.bitmap, data.offset)
+                        }
 
-                    // Directional line
+                        // Player
+                        drawRect(
+                            topLeft = viewModel.playerPosition,
+                            color = Color.Blue,
+                            size = viewModel.playerSize
+                        )
+                    }
+                }
+                if (isGameOver) {
+                    Text(
+                        text = "Game Over",
+                        fontSize = 24.sp,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Directional line
 //                    val playerCenter = Offset(viewModel.playerPosition.x + viewModel.playerCenter.x, viewModel.playerPosition.y + viewModel.playerCenter.y)
 //                    val lineDirection = viewModel.direction * 48f
 //                    val lineEnd = Offset(playerCenter.x + lineDirection.x, playerCenter.y + lineDirection.y)
@@ -145,24 +170,3 @@ fun Game(
 //                        color = Color.Black,
 //                        style = Stroke(8f, cap = StrokeCap.Round)
 //                    )
-
-                    // Player
-                    drawRect(
-                        topLeft = viewModel.playerPosition,
-                        color = Color.Blue,
-                        size = viewModel.playerSize
-                    )
-
-                    // Collision
-                    if (isGameOver) {
-                        drawRect(
-                            topLeft = collisionRect,
-                            color = Color.Red,
-                            size = Size(64f, 64f)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
