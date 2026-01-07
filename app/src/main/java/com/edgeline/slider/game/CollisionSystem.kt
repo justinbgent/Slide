@@ -15,6 +15,10 @@ import kotlinx.coroutines.withContext
 class CollisionSystem {
     private var currentRectangles = mutableListOf<Rectangle>()
 
+    fun restart() {
+        currentRectangles = mutableListOf()
+    }
+
     suspend fun update(offsetPoints: OffsetPoints) {
         withContext(Dispatchers.IO) {
             val rectangles = mutableListOf<Rectangle>()
