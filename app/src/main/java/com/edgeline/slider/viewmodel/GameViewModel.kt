@@ -2,24 +2,25 @@ package com.edgeline.slider.viewmodel
 
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
-import com.edgeline.slider.game.CameraSystem
-import com.edgeline.slider.game.ChunkSystem
-import com.edgeline.slider.game.CollisionSystem
-import com.edgeline.slider.game.PlayerSystem
-import com.edgeline.slider.game.ScoreSystem
-import com.edgeline.slider.model.ChunkData
-import com.edgeline.slider.model.Vector
+import com.edgeline.slider.game.system.CameraSystem
+import com.edgeline.slider.game.system.ChunkSystem
+import com.edgeline.slider.game.system.CollisionSystem
+import com.edgeline.slider.game.system.PlayerSystem
+import com.edgeline.slider.game.system.ScoreSystem
+import com.edgeline.slider.game.model.ChunkData
+import com.edgeline.slider.game.model.Vector
+import com.edgeline.slider.room.dao.ScoreDao
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class GameViewModel() : ViewModel() {
+class GameViewModel(private val scoreDao: ScoreDao) : ViewModel() {
     private val chunkSystem = ChunkSystem()
     private val camera = CameraSystem()
     private val collisionSystem = CollisionSystem()
-    private val scoreSystem = ScoreSystem()
+    private val scoreSystem = ScoreSystem(scoreDao)
     private val player = PlayerSystem()
 
     private val _chunkData = MutableStateFlow(listOf<ChunkData>())
@@ -32,6 +33,7 @@ class GameViewModel() : ViewModel() {
         get() = camera.canvasOffset
     val playerPoints: StateFlow<MutableList<Vector>>
         get() = player.playerPoints
+    val bgColor = Color(0, 150, 191, 255)
 
     var endRectPos = Offset.Zero
     private var frameTimestamp = 0L
@@ -54,6 +56,7 @@ class GameViewModel() : ViewModel() {
 
         if (isGameOver()) {
             _isGameOver.value = true
+            scoreSystem.saveScore()
             return
         }
 
@@ -111,4 +114,3 @@ class GameViewModel() : ViewModel() {
         player.onCleared()
     }
 }
-//    val dirtGroundColor = Color(150, 111, 67, 255)

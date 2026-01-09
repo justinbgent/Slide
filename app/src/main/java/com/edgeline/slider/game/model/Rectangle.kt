@@ -1,4 +1,4 @@
-package com.edgeline.slider.model
+package com.edgeline.slider.game.model
 
 import kotlin.math.max
 import kotlin.math.min

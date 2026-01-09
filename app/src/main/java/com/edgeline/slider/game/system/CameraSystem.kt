@@ -1,7 +1,7 @@
-package com.edgeline.slider.game
+package com.edgeline.slider.game.system
 
-import com.edgeline.slider.model.Vector
-import com.edgeline.slider.model.minus
+import com.edgeline.slider.game.model.Vector
+import com.edgeline.slider.game.model.minus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 

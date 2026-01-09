@@ -1,18 +1,17 @@
-package com.edgeline.slider.game
+package com.edgeline.slider.game.system
 
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.BlendModeColorFilter
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageBitmapConfig
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PaintingStyle
-import com.edgeline.slider.model.ChunkData
-import com.edgeline.slider.model.OffsetPoints
-import com.edgeline.slider.model.algorithm.Noise
+import com.edgeline.slider.game.model.ChunkData
+import com.edgeline.slider.game.model.OffsetPoints
+import com.edgeline.slider.game.model.Vector
+import com.edgeline.slider.game.model.algorithm.Noise
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
@@ -49,7 +48,7 @@ class ChunkSystem {
     private var lastChunk = -1
     private var currentChunk = 0
     private val chunks = mutableListOf<ChunkData>()
-    private val chunkPoints = mutableMapOf<Int, List<Offset>>()
+    private val chunkPoints = mutableMapOf<Int, List<Vector>>()
     private var chunksToLoad = MIN_CHUNK_LOAD
 
     fun restart(){
@@ -69,9 +68,9 @@ class ChunkSystem {
         if (chunkPoints.containsKey(currentChunk)) {
             val chunkPoints = chunkPoints[currentChunk]!!
             val yOffset = currentChunk * CHUNK_HEIGHT + chunkStartY
-            return OffsetPoints(chunkPoints, Offset(sampleTopLeftX, yOffset))
+            return OffsetPoints(chunkPoints, Vector(sampleTopLeftX, yOffset))
         }
-        return OffsetPoints(listOf(), Offset.Zero)
+        return OffsetPoints(listOf(), Vector(0f, 0f))
     }
 
     suspend fun updateAndGetChunksIfNeeded(playerYTravel: Int): List<ChunkData>? {
@@ -165,11 +164,11 @@ class ChunkSystem {
         return ChunkData(chunk, bitmap, offset)
     }
 
-    private fun sampleRectArea(chunk: Int): List<Offset> {
+    private fun sampleRectArea(chunk: Int): List<Vector> {
         // Take in both height bounds by quarterGoal to make tiling nearly seamless
         // Plus subtract squareSize from right and bottom bounds to account for the squares
         val quarterGoal = goalDistance / 4
-        val topLeft = Offset(BOUNDARY_WIDTH, quarterGoal)
+        val topLeft = Vector(BOUNDARY_WIDTH, quarterGoal)
         val newHeight = CHUNK_HEIGHT - quarterGoal * 2 - SQUARE_SIZE
         val seed = baseSeed + chunk
         return noise.sampleRectangle(

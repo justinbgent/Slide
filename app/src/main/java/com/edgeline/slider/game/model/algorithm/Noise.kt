@@ -1,11 +1,11 @@
-package com.edgeline.slider.model.algorithm
+package com.edgeline.slider.game.model.algorithm
 
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
-import com.edgeline.slider.model.Vector
-import com.edgeline.slider.model.minus
-import com.edgeline.slider.model.plusAssign
-import com.edgeline.slider.model.times
+import com.edgeline.slider.game.model.Vector
+import com.edgeline.slider.game.model.minus
+import com.edgeline.slider.game.model.plusAssign
+import com.edgeline.slider.game.model.times
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -33,18 +33,18 @@ class Noise() {
         width: Float,
         height: Float,
         goalDistance: Float,
-        topLeft: Offset,
+        topLeft: Vector,
         seed: Int
-    ): List<Offset> {
+    ): List<Vector> {
         random = Random(seed)
         return sampleRectangle(width, height, goalDistance, topLeft)
     }
 
     /// A rough sampling technique with points a relative distance apart from each other.
     private fun sampleRectangle(
-        width: Float, height: Float, goalDistance: Float, topLeft: Offset
-    ): List<Offset> {
-        val points = mutableListOf<Offset>()
+        width: Float, height: Float, goalDistance: Float, topLeft: Vector
+    ): List<Vector> {
+        val points = mutableListOf<Vector>()
         val cellSize = goalDistance / cellsPerMinDistance
         val halfCellSize = cellSize / 2
 
@@ -125,7 +125,7 @@ class Noise() {
             // If point is not out of bounds, add to list.
             if (!(point.x > width + topLeft.x || point.y > height + topLeft.y ||
                     point.x < topLeft.x || point.y < topLeft.y)) {
-                points.add(Offset(point.x, point.y))
+                points.add(Vector(point.x, point.y))
             }
 
             // Remove the cell, since the cell point is now set.

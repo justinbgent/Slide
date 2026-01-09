@@ -1,15 +1,10 @@
-package com.edgeline.slider.game
+package com.edgeline.slider.game.system
 
 import androidx.compose.ui.geometry.Offset
-import com.edgeline.slider.game.ChunkSystem.Companion.SQUARE_SIZE
-import com.edgeline.slider.game.ChunkSystem.Companion.boundary1Coord
-import com.edgeline.slider.game.ChunkSystem.Companion.boundary2Coord
-import com.edgeline.slider.game.ChunkSystem.Companion.BOUNDARY_WIDTH
-import com.edgeline.slider.game.ChunkSystem.Companion.CHUNK_HEIGHT
-import com.edgeline.slider.model.Circle
-import com.edgeline.slider.model.OffsetPoints
-import com.edgeline.slider.model.Rectangle
-import com.edgeline.slider.model.Vector
+import com.edgeline.slider.game.model.Circle
+import com.edgeline.slider.game.model.OffsetPoints
+import com.edgeline.slider.game.model.Rectangle
+import com.edgeline.slider.game.model.Vector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -28,25 +23,25 @@ class CollisionSystem {
                     Rectangle(
                         point.x + offsetPoints.pointOffset.x,
                         point.y + offsetPoints.pointOffset.y,
-                        SQUARE_SIZE,
-                        SQUARE_SIZE
+                        ChunkSystem.Companion.SQUARE_SIZE,
+                        ChunkSystem.Companion.SQUARE_SIZE
                     )
                 )
             }
             rectangles.add(
                 Rectangle(
-                    boundary1Coord.x + offsetPoints.pointOffset.x,
-                    boundary1Coord.y + offsetPoints.pointOffset.y,
-                    BOUNDARY_WIDTH,
-                    CHUNK_HEIGHT.toFloat()
+                    ChunkSystem.Companion.boundary1Coord.x + offsetPoints.pointOffset.x,
+                    ChunkSystem.Companion.boundary1Coord.y + offsetPoints.pointOffset.y,
+                    ChunkSystem.Companion.BOUNDARY_WIDTH,
+                    ChunkSystem.Companion.CHUNK_HEIGHT.toFloat()
                 )
             )
             rectangles.add(
                 Rectangle(
-                    boundary2Coord.x + offsetPoints.pointOffset.x,
-                    boundary2Coord.y + offsetPoints.pointOffset.y,
-                    BOUNDARY_WIDTH,
-                    CHUNK_HEIGHT.toFloat()
+                    ChunkSystem.Companion.boundary2Coord.x + offsetPoints.pointOffset.x,
+                    ChunkSystem.Companion.boundary2Coord.y + offsetPoints.pointOffset.y,
+                    ChunkSystem.Companion.BOUNDARY_WIDTH,
+                    ChunkSystem.Companion.CHUNK_HEIGHT.toFloat()
                 )
             )
             currentRectangles = rectangles

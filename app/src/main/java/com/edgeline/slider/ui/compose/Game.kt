@@ -17,33 +17,31 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.edgeline.slider.model.ChunkData
-import com.edgeline.slider.model.Vector
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.edgeline.slider.game.model.ChunkData
+import com.edgeline.slider.game.model.Vector
+import com.edgeline.slider.viewmodel.AppViewModelProvider
 import com.edgeline.slider.viewmodel.GameViewModel
 import kotlinx.coroutines.isActive
 
 @Composable
 fun Game(
     onNavigateBack: () -> Unit,
-    viewModel: GameViewModel = GameViewModel()
+    viewModel: GameViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
 //    val density = LocalDensity.current
     val windowInfo = LocalWindowInfo.current
@@ -57,12 +55,10 @@ fun Game(
         }
     }
 
-    val bgColor = remember { Color(0, 150, 191, 255) }
-
     val canvasOffset by viewModel.canvasOffset.collectAsStateWithLifecycle()
     val visualData by viewModel.chunkData.collectAsStateWithLifecycle()
     val score by viewModel.score.collectAsStateWithLifecycle()
-    val playerPoints by viewModel.playerPoints.collectAsStateWithLifecycle()
+    val playerDrawPoints by viewModel.playerPoints.collectAsStateWithLifecycle()
     val isGameOver by viewModel.isGameOver.collectAsStateWithLifecycle()
 
     Scaffold { insets ->
@@ -94,7 +90,7 @@ fun Game(
                     modifier = Modifier
                         .fillMaxWidth()
                         .fillMaxHeight()
-                        .background(color = bgColor)
+                        .background(color = viewModel.bgColor)
                         .clipToBounds()
                         .pointerInput(Unit) {
                             detectTapGestures { offset ->
@@ -105,11 +101,14 @@ fun Game(
                     drawVisuals(
                         canvasOffset,
                         visualData,
-                        playerPoints
+                        playerDrawPoints
                     )
                 }
                 if (isGameOver) {
-                    Column {
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text(
                             text = "Game Over",
                             fontSize = 24.sp,
