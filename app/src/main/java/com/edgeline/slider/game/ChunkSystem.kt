@@ -2,6 +2,8 @@ package com.edgeline.slider.game
 
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.BlendModeColorFilter
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -33,11 +35,9 @@ class ChunkSystem {
     private val halfChunkHeight = CHUNK_HEIGHT / 2
     // Used to center chunk 0 on player
 
-    private val halfStroke = 2f // Needed because half of stroke is outside the square dimensions
     private val paint = Paint().apply {
-        color = Color.Black
-        style = PaintingStyle.Stroke
-        strokeWidth = halfStroke * 2f
+        color = Color(0, 61, 128, 255)
+        style = PaintingStyle.Fill
     }
 
     private val noise = Noise()
@@ -168,14 +168,12 @@ class ChunkSystem {
     private fun sampleRectArea(chunk: Int): List<Offset> {
         // Take in both height bounds by quarterGoal to make tiling nearly seamless
         // Plus subtract squareSize from right and bottom bounds to account for the squares
-        // Then account for square's stroke that goes over square bounds by half of the stroke
-        //      on the left and right
         val quarterGoal = goalDistance / 4
-        val topLeft = Offset(0f + halfStroke + BOUNDARY_WIDTH, quarterGoal)
+        val topLeft = Offset(BOUNDARY_WIDTH, quarterGoal)
         val newHeight = CHUNK_HEIGHT - quarterGoal * 2 - SQUARE_SIZE
         val seed = baseSeed + chunk
         return noise.sampleRectangle(
-            SAMPLE_WIDTH.toFloat() - SQUARE_SIZE - halfStroke * 2,
+            SAMPLE_WIDTH.toFloat() - SQUARE_SIZE,
             newHeight,
             goalDistance,
             topLeft,

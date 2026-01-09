@@ -57,7 +57,7 @@ fun Game(
         }
     }
 
-    val bgColor = remember { Color(0, 183, 255, 255) }
+    val bgColor = remember { Color(0, 150, 191, 255) }
 
     val canvasOffset by viewModel.canvasOffset.collectAsStateWithLifecycle()
     val visualData by viewModel.chunkData.collectAsStateWithLifecycle()

@@ -65,6 +65,13 @@ class PlayerSystem {
         return playerMovement
     }
 
+    private fun onScoreUpdate(score: Int) {
+        if (speed >= maxSpeed) return
+        val factor = 1 + (score / increaseSpeedAfterPoints) * increaseRate
+        speed = baseSpeed * factor
+        turnSpeed = baseTurnSpeed * factor
+    }
+
     fun tapUpdate(tapPosition: Offset) {
         goalDirection.set((tapPosition).toVector() - playerScreenPosition)
     }
@@ -99,13 +106,6 @@ class PlayerSystem {
         _playerPoints.value.add(tmPoint)
         _playerPoints.value.add(trPoint)
         _playerPoints.value.add(brPoint)
-    }
-
-    private fun onScoreUpdate(score: Int) {
-        if (speed >= maxSpeed) return
-        val factor = 1 + (score / increaseSpeedAfterPoints) * increaseRate
-        speed = baseSpeed * factor
-        turnSpeed = baseTurnSpeed * factor
     }
 
     fun onCleared(){
