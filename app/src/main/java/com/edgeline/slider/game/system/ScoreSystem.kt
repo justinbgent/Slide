@@ -3,6 +3,7 @@ package com.edgeline.slider.game.system
 import com.edgeline.slider.room.model.Score
 import com.edgeline.slider.room.dao.ScoreDao
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
@@ -37,6 +38,10 @@ class ScoreSystem(private val scoreDao: ScoreDao) {
         if (_score.value > 0) {
             scoreDao.insertAndCleanup(Score(score = _score.value))
         }
+    }
+
+    fun getScores(): Flow<List<Score>> {
+        return scoreDao.getAllScores()
     }
 
     fun restart() {

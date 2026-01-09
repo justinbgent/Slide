@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.edgeline.slider.game.system.CameraSystem
 import com.edgeline.slider.game.system.ChunkSystem
 import com.edgeline.slider.game.system.CollisionSystem
@@ -12,9 +13,13 @@ import com.edgeline.slider.game.system.ScoreSystem
 import com.edgeline.slider.game.model.ChunkData
 import com.edgeline.slider.game.model.Vector
 import com.edgeline.slider.room.dao.ScoreDao
+import com.edgeline.slider.room.model.Score
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 
 class GameViewModel(private val scoreDao: ScoreDao) : ViewModel() {
     private val chunkSystem = ChunkSystem()
@@ -33,7 +38,12 @@ class GameViewModel(private val scoreDao: ScoreDao) : ViewModel() {
         get() = camera.canvasOffset
     val playerPoints: StateFlow<MutableList<Vector>>
         get() = player.playerPoints
-    val bgColor = Color(0, 150, 191, 255)
+    val highScores: StateFlow<List<Score>> = scoreSystem.getScores()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     var endRectPos = Offset.Zero
     private var frameTimestamp = 0L
@@ -55,8 +65,8 @@ class GameViewModel(private val scoreDao: ScoreDao) : ViewModel() {
         }
 
         if (isGameOver()) {
-            _isGameOver.value = true
             scoreSystem.saveScore()
+            _isGameOver.value = true
             return
         }
 
@@ -82,7 +92,7 @@ class GameViewModel(private val scoreDao: ScoreDao) : ViewModel() {
         }
     }
 
-    fun tapVector(tapPosition: Offset) {
+    fun onTap(tapPosition: Offset) {
         player.tapUpdate(tapPosition)
     }
 
