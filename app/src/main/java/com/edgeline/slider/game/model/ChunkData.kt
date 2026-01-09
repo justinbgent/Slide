@@ -1,4 +1,4 @@
-package com.edgeline.slider.model
+package com.edgeline.slider.game.model
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap

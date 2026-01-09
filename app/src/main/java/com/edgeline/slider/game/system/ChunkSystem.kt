@@ -1,4 +1,4 @@
-package com.edgeline.slider.game
+package com.edgeline.slider.game.system
 
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
@@ -8,61 +8,69 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageBitmapConfig
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PaintingStyle
-import com.edgeline.slider.model.ChunkData
-import com.edgeline.slider.model.OffsetPoints
-import com.edgeline.slider.model.algorithm.Noise
+import com.edgeline.slider.game.model.ChunkData
+import com.edgeline.slider.game.model.OffsetPoints
+import com.edgeline.slider.game.model.Vector
+import com.edgeline.slider.game.model.algorithm.Noise
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 
 class ChunkSystem {
     companion object {
         const val SQUARE_SIZE = 64f
-        const val MIN_CHUNK_LOAD = 3
         const val BOUNDARY_WIDTH = SQUARE_SIZE * 2
         const val SAMPLE_WIDTH = 4500
         const val CHUNK_HEIGHT = 2000
         const val CANVAS_WIDTH = (BOUNDARY_WIDTH * 2).toInt() + SAMPLE_WIDTH
         val boundary1Coord = Offset(0f, 0f)
         val boundary2Coord = Offset(BOUNDARY_WIDTH + SAMPLE_WIDTH, 0f)
+        private const val MIN_CHUNK_LOAD = 3
     }
+
+    private var chunkJob: Job? = null
 
     private val halfChunkHeight = CHUNK_HEIGHT / 2
     // Used to center chunk 0 on player
 
+    private val paint = Paint().apply {
+        color = Color(0, 61, 128, 255)
+        style = PaintingStyle.Fill
+    }
+
     private val noise = Noise()
     private val baseSeed = 6104970
     private val goalDistance = 200f
-    private val chunkPoints = mutableMapOf<Int, List<Offset>>()
-
-    private val halfStroke = 2f // Needed because half of stroke is outside the square dimensions
-    private val paint = Paint().apply {
-        color = Color.Black
-        style = PaintingStyle.Stroke
-        strokeWidth = halfStroke * 2f
-    }
-
     // Calculated to make the canvas start in the horizontal center of the generated field
     private var sampleTopLeftX = 0f
-    private var chunkOffsetY = 0f
+    private var chunkStartY = 0f
     private var lastChunk = -1
     private var currentChunk = 0
     private val chunks = mutableListOf<ChunkData>()
+    private val chunkPoints = mutableMapOf<Int, List<Vector>>()
     private var chunksToLoad = MIN_CHUNK_LOAD
+
+    fun restart(){
+        chunks.clear()
+        chunkPoints.clear()
+        currentChunk = 0
+        lastChunk = -1
+    }
 
     fun initialize(screenWidth: Int, screenHeight: Int, chunksCenteredOn: Float){
         sampleTopLeftX = -(SAMPLE_WIDTH - screenWidth) / 2f
-        chunkOffsetY = chunksCenteredOn - halfChunkHeight
+        chunkStartY = chunksCenteredOn - halfChunkHeight
         chunksToLoad = max(screenHeight / CHUNK_HEIGHT + 1, MIN_CHUNK_LOAD)
     }
 
     fun getChunkPoints(): OffsetPoints {
-        val yOffset = currentChunk * CHUNK_HEIGHT + chunkOffsetY
         if (chunkPoints.containsKey(currentChunk)) {
             val chunkPoints = chunkPoints[currentChunk]!!
-            return OffsetPoints(chunkPoints, Offset(sampleTopLeftX, yOffset))
+            val yOffset = currentChunk * CHUNK_HEIGHT + chunkStartY
+            return OffsetPoints(chunkPoints, Vector(sampleTopLeftX, yOffset))
         }
-        return OffsetPoints(listOf(), Offset.Zero)
+        return OffsetPoints(listOf(), Vector(0f, 0f))
     }
 
     suspend fun updateAndGetChunksIfNeeded(playerYTravel: Int): List<ChunkData>? {
@@ -125,7 +133,7 @@ class ChunkSystem {
         val canvas = Canvas(bitmap)
 
         val points = sampleRectArea(chunk)
-        val yOffset = chunk * CHUNK_HEIGHT + chunkOffsetY
+        val yOffset = chunk * CHUNK_HEIGHT + chunkStartY
 
         canvas.drawRect(
             boundary1Coord.x,
@@ -156,17 +164,15 @@ class ChunkSystem {
         return ChunkData(chunk, bitmap, offset)
     }
 
-    private fun sampleRectArea(chunk: Int): List<Offset> {
+    private fun sampleRectArea(chunk: Int): List<Vector> {
         // Take in both height bounds by quarterGoal to make tiling nearly seamless
         // Plus subtract squareSize from right and bottom bounds to account for the squares
-        // Then account for square's stroke that goes over square bounds by half of the stroke
-        //      on the left and right
         val quarterGoal = goalDistance / 4
-        val topLeft = Offset(0f + halfStroke + BOUNDARY_WIDTH, quarterGoal)
+        val topLeft = Vector(BOUNDARY_WIDTH, quarterGoal)
         val newHeight = CHUNK_HEIGHT - quarterGoal * 2 - SQUARE_SIZE
         val seed = baseSeed + chunk
         return noise.sampleRectangle(
-            SAMPLE_WIDTH.toFloat() - SQUARE_SIZE - halfStroke * 2,
+            SAMPLE_WIDTH.toFloat() - SQUARE_SIZE,
             newHeight,
             goalDistance,
             topLeft,

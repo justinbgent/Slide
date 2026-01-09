@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.edgeline.slider.model.Window
+import com.edgeline.slider.game.model.Window
 import com.edgeline.slider.ui.compose.Credits
 import com.edgeline.slider.ui.compose.MainMenu
 import com.edgeline.slider.ui.compose.Game
