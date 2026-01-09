@@ -1,30 +1,19 @@
 package com.edgeline.slider.viewmodel
 
 import android.util.Log
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import com.edgeline.slider.game.CameraSystem
 import com.edgeline.slider.game.ChunkSystem
 import com.edgeline.slider.game.CollisionSystem
-import com.edgeline.slider.game.CameraSystem
 import com.edgeline.slider.game.PlayerSystem
 import com.edgeline.slider.game.ScoreSystem
 import com.edgeline.slider.model.ChunkData
 import com.edgeline.slider.model.Vector
-import com.edgeline.slider.model.toOffset
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 class GameViewModel() : ViewModel() {
     private val chunkSystem = ChunkSystem()
@@ -39,16 +28,10 @@ class GameViewModel() : ViewModel() {
     val isGameOver = _isGameOver.asStateFlow()
     val score: StateFlow<Int>
         get() = scoreSystem.score
-    val canvasOffset: StateFlow<Offset>
+    val canvasOffset: StateFlow<Vector>
         get() = camera.canvasOffset
-    val playerSize: Size
-        get() = player.playerSize
-    val playerPosition: StateFlow<Offset>
-        get() = player.playerPosition
-    val direction: StateFlow<Vector>
-        get() = player.direction
-    val playerCenter: Offset
-        get() = player.playerCenter
+    val playerPoints: StateFlow<MutableList<Vector>>
+        get() = player.playerPoints
 
     var endRectPos = Offset.Zero
     private var frameTimestamp = 0L
@@ -57,24 +40,22 @@ class GameViewModel() : ViewModel() {
         player.initialize(width, height)
         chunkSystem.initialize(
             width, height,
-            playerPosition.value.y
+            player.position.y
         )
     }
 
     suspend fun gameLoop(now: Long) {
+        if (_isGameOver.value) return
         // Don't calculate movement on the first frame
         if (frameTimestamp == 0L) {
             frameTimestamp = now
             return
         }
 
-        if (!_isGameOver.value) {
-            _isGameOver.value = isGameOver()
-        }
-        else {
+        if (isGameOver()) {
+            _isGameOver.value = true
             return
         }
-
 
         // Update chunks
         val newVisuals = updateSystems(now - frameTimestamp)
@@ -104,8 +85,6 @@ class GameViewModel() : ViewModel() {
 
     suspend fun updateSystems(deltaTime: Long): List<ChunkData>? {
         val timeStep = deltaTime / 1000f
-        if (timeStep > 0.01f)
-        Log.i(GameViewModel::class.simpleName, "$timeStep")
         val playerMovement = player.playerMovement(timeStep)
         camera.updateCameraState(playerMovement)
         val distanceFromStart = player.getPlayerDistanceFromStartY()
@@ -118,12 +97,18 @@ class GameViewModel() : ViewModel() {
     }
 
     suspend fun isGameOver(): Boolean {
-        val collisionOffset = collisionSystem.checkPlayerCollision(playerPosition.value, playerSize)
+        val collisionOffset = collisionSystem.checkPlayerCollision(player.position, player.radius)
         if (collisionOffset != null) {
+            Log.i(GameViewModel::class.simpleName, "Collision at $collisionOffset, Position${player.position}")
             endRectPos = collisionOffset
             return true
         }
         return false
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        player.onCleared()
     }
 }
 //    val dirtGroundColor = Color(150, 111, 67, 255)

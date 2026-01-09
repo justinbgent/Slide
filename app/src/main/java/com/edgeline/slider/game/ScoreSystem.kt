@@ -6,6 +6,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.abs
 
 class ScoreSystem {
+    companion object {
+        private val onScoreUpdate = mutableListOf<(score: Int) -> Unit>()
+
+        fun subscribeToScore(listener: (score: Int) -> Unit) {
+            onScoreUpdate.add(listener)
+        }
+        fun unsubscribeFromScore(listener: (score: Int) -> Unit) {
+            onScoreUpdate.remove(listener)
+        }
+    }
+
     private val _score = MutableStateFlow(0)
     val score = _score.asStateFlow()
     private var scoreIncreaseDist = SQUARE_SIZE.toInt()
@@ -14,6 +25,7 @@ class ScoreSystem {
         val newScore = abs(yTravel) / scoreIncreaseDist
         if (newScore > _score.value) {
             _score.value = newScore
+            onScoreUpdate.forEach { it(_score.value) }
         }
     }
 

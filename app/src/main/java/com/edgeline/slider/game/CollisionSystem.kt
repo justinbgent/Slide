@@ -1,14 +1,15 @@
 package com.edgeline.slider.game
 
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import com.edgeline.slider.game.ChunkSystem.Companion.SQUARE_SIZE
 import com.edgeline.slider.game.ChunkSystem.Companion.boundary1Coord
 import com.edgeline.slider.game.ChunkSystem.Companion.boundary2Coord
 import com.edgeline.slider.game.ChunkSystem.Companion.BOUNDARY_WIDTH
 import com.edgeline.slider.game.ChunkSystem.Companion.CHUNK_HEIGHT
+import com.edgeline.slider.model.Circle
 import com.edgeline.slider.model.OffsetPoints
 import com.edgeline.slider.model.Rectangle
+import com.edgeline.slider.model.Vector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -52,17 +53,11 @@ class CollisionSystem {
         }
     }
 
-    suspend fun checkPlayerCollision(playerPosition: Offset, playerSize: Size): Offset? {
+    suspend fun checkPlayerCollision(position: Vector, radius: Float): Offset? {
         return withContext(Dispatchers.Default) {
-            val player =
-                Rectangle(
-                    playerPosition.x,
-                    playerPosition.y,
-                    playerSize.width,
-                    playerSize.height
-                )
+            val player = Circle(position, radius)
             for (rect in currentRectangles) {
-                if (rect.Intersects(player)) {
+                if (player.intersects(rect)) {
                     return@withContext Offset(rect.left, rect.top)
                 }
             }
